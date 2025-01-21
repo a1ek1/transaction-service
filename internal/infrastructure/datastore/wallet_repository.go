@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
-	"math/rand"
 	"transaction-service/internal/domain/model"
 	"transaction-service/internal/domain/repository"
 )
@@ -38,7 +37,7 @@ func (w *walletRepositoryImpl) Create(ctx context.Context) (uuid.UUID, error) {
 		ctx,
 		"INSERT INTO wallets (id, amount) VALUES ($1, $2) RETURNING id",
 		uuid.New(),
-		rand.Intn(2147483647),
+		100,
 	).Scan(&id)
 	if err != nil {
 		return uuid.Nil, err
