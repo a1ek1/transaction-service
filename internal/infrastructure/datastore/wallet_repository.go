@@ -7,13 +7,14 @@ import (
 	"github.com/jmoiron/sqlx"
 	"math/rand"
 	"transaction-service/internal/domain/model"
+	"transaction-service/internal/domain/repository"
 )
 
 type walletRepositoryImpl struct {
 	db *sqlx.DB
 }
 
-func NewWalletRepositoryImpl(db *sqlx.DB) *walletRepositoryImpl {
+func NewWalletRepositoryImpl(db *sqlx.DB) repository.WalletRepository {
 	return &walletRepositoryImpl{db: db}
 }
 
