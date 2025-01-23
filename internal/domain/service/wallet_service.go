@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 	"github.com/google/uuid"
+	"sync"
 	"time"
 	"transaction-service/internal/domain/model"
-
 	"transaction-service/internal/domain/repository"
 )
 
@@ -18,19 +18,36 @@ type WalletService interface {
 type walletService struct {
 	walletRepo      repository.WalletRepository
 	transactionRepo repository.TransactionRepository
+
+	// Map для индивидуальных блокировок кошельков
+	lockMap sync.Map
 }
 
 func NewWalletService(walletRepo repository.WalletRepository, transactionRepo repository.TransactionRepository) WalletService {
-	return &walletService{walletRepo: walletRepo, transactionRepo: transactionRepo}
+	return &walletService{
+		walletRepo:      walletRepo,
+		transactionRepo: transactionRepo,
+	}
 }
 
-func (w walletService) SendMoney(ctx context.Context, fromID, toID uuid.UUID, amount int) error {
+func (w *walletService) SendMoney(ctx context.Context, fromID, toID uuid.UUID, amount int) error {
 	if fromID == toID {
 		return fmt.Errorf("cannot send money to the same wallet")
 	}
-	if amount <= 0 || amount > 10000000 { // Лимит: 10,000.00
+	if amount <= 0 || amount > 10000000 {
 		return fmt.Errorf("amount must be between 0 and 10,000")
 	}
+
+	// Получаем блокировки для отправителя и получателя
+	fromLock := w.getLock(fromID)
+	toLock := w.getLock(toID)
+
+	// Блокируем оба кошелька
+	fromLock.Lock()
+	defer fromLock.Unlock()
+
+	toLock.Lock()
+	defer toLock.Unlock()
 
 	tx, err := w.walletRepo.BeginTransaction()
 	if err != nil {
@@ -79,10 +96,16 @@ func (w walletService) SendMoney(ctx context.Context, fromID, toID uuid.UUID, am
 	return nil
 }
 
-func (w walletService) GetBalance(ctx context.Context, id uuid.UUID) (amount int, err error) {
+func (w *walletService) GetBalance(ctx context.Context, id uuid.UUID) (amount int, err error) {
 	wallet, err := w.walletRepo.FetchByID(ctx, id)
 	if err != nil {
 		return 0, fmt.Errorf("failed to fetch wallet: %w", err)
 	}
 	return wallet.Amount, nil
+}
+
+// getLock возвращает блокировку для кошелька
+func (w *walletService) getLock(walletID uuid.UUID) *sync.Mutex {
+	lock, _ := w.lockMap.LoadOrStore(walletID, &sync.Mutex{})
+	return lock.(*sync.Mutex)
 }
