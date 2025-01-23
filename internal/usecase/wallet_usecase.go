@@ -23,16 +23,19 @@ func NewWalletUsecase(walletService service.WalletService) WalletUsecase {
 	}
 }
 
-// SendMoney обрабатывает перевод средств между кошельками
 func (u *walletUsecase) SendMoney(ctx context.Context, fromID, toID string, amount float64) error {
+	if amount <= 0 {
+		return fmt.Errorf("amount must be greater than zero")
+	}
+
 	fromUUID, err := uuid.Parse(fromID)
 	if err != nil {
-		return fmt.Errorf("invalid from wallet ID: %w", err)
+		return fmt.Errorf("invalid 'from' wallet ID: %w", err)
 	}
 
 	toUUID, err := uuid.Parse(toID)
 	if err != nil {
-		return fmt.Errorf("invalid to wallet ID: %w", err)
+		return fmt.Errorf("invalid 'to' wallet ID: %w", err)
 	}
 
 	amountInCents := int(amount * 100)
@@ -42,7 +45,6 @@ func (u *walletUsecase) SendMoney(ctx context.Context, fromID, toID string, amou
 	return nil
 }
 
-// GetBalance возвращает баланс кошелька
 func (u *walletUsecase) GetBalance(ctx context.Context, walletID string) (float64, error) {
 	walletUUID, err := uuid.Parse(walletID)
 	if err != nil {

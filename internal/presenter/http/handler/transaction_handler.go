@@ -8,12 +8,10 @@ import (
 	"github.com/labstack/echo"
 )
 
-// TransactionHandler интерфейс для обработки запросов транзакций
 type TransactionHandler interface {
 	GetLastTransactions(c echo.Context) error
 }
 
-// Реализация TransactionHandler
 type transactionHandlerImpl struct {
 	TransactionUsecase usecase.TransactionUsecase
 }
@@ -23,7 +21,6 @@ func NewTransactionHandler(transactionUsecase usecase.TransactionUsecase) Transa
 }
 
 func (h *transactionHandlerImpl) GetLastTransactions(c echo.Context) error {
-	// Чтение параметра count из запроса
 	countParam := c.QueryParam("count")
 	if countParam == "" {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "count parameter is required"})

@@ -51,32 +51,43 @@ func (w *walletRepositoryImpl) Create(ctx context.Context) (uuid.UUID, error) {
 }
 
 func (w *walletRepositoryImpl) FetchByID(ctx context.Context, id uuid.UUID) (*model.Wallet, error) {
-	conn, err := w.db.Connx(ctx)
-	if err != nil {
-		return nil, err
+	if id == uuid.Nil {
+		return nil, fmt.Errorf("invalid wallet ID")
 	}
-	defer conn.Close()
 
 	var wallet dbWallet
-	if err := conn.GetContext(ctx, &wallet, `SELECT * FROM wallets WHERE id = $1`, id); err != nil {
-		return nil, err
+	query := `SELECT id, amount FROM wallets WHERE id = :id`
+	stmt, err := w.db.PrepareNamedContext(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to prepare query: %w", err)
+	}
+	defer stmt.Close()
+
+	err = stmt.GetContext(ctx, &wallet, map[string]interface{}{"id": id})
+	if err != nil {
+		return nil, fmt.Errorf("wallet not found: %w", err)
 	}
 
-	return (*model.Wallet)(&wallet), nil
+	return &model.Wallet{ID: wallet.ID, Amount: wallet.Amount}, nil
 }
 
 func (w *walletRepositoryImpl) Update(ctx context.Context, wallet *model.Wallet) (*model.Wallet, error) {
+	if wallet == nil || wallet.ID == uuid.Nil {
+		return nil, fmt.Errorf("invalid wallet data")
+	}
+
 	tx, err := w.BeginTransaction()
 	if err != nil {
 		return nil, err
 	}
 	defer tx.Rollback()
 
-	_, err = tx.ExecContext(
-		ctx,
-		`UPDATE wallets SET amount = $1 WHERE id = $2`,
-		wallet.Amount,
-		wallet.ID,
+	_, err = tx.NamedExecContext(ctx,
+		`UPDATE wallets SET amount = :amount WHERE id = :id`,
+		map[string]interface{}{
+			"amount": wallet.Amount,
+			"id":     wallet.ID,
+		},
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update wallet: %w", err)

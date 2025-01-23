@@ -9,7 +9,6 @@ import (
 	"transaction-service/internal/usecase"
 )
 
-// Interactor интерфейс для предоставления зависимостей
 type Interactor interface {
 	NewWalletRepository() repository.WalletRepository
 	NewTransactionRepository() repository.TransactionRepository
@@ -26,12 +25,10 @@ type interactor struct {
 	DB *sqlx.DB
 }
 
-// NewInteractor создает новый инстанс Interactor
 func NewInteractor(db *sqlx.DB) Interactor {
 	return &interactor{DB: db}
 }
 
-// appHandler объединяет все обработчики (handlers)
 type appHandler struct {
 	handler.WalletHandler
 	handler.TransactionHandler
@@ -43,8 +40,6 @@ func (i *interactor) NewAppHandler() handler.AppHandler {
 		TransactionHandler: i.NewTransactionHandler(),
 	}
 }
-
-// Реализация методов для создания зависимостей
 
 func (i *interactor) NewWalletRepository() repository.WalletRepository {
 	return datastore.NewWalletRepositoryImpl(i.DB)
