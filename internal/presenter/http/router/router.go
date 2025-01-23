@@ -9,7 +9,7 @@ func NewRouter(e *echo.Echo, h handler.AppHandler) {
 	api := e.Group("/api")
 	{
 		api.POST("/send", h.SendMoney)
-		api.GET("/transactions", h.GetLastTransactions) // Маршрут обновлен
+		api.GET("/transactions", h.GetLastTransactions)
 		api.GET("/wallet/:address/balance", h.GetBalance)
 	}
 }

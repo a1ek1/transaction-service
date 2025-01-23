@@ -19,7 +19,6 @@ type walletService struct {
 	walletRepo      repository.WalletRepository
 	transactionRepo repository.TransactionRepository
 
-	// Map для индивидуальных блокировок кошельков
 	lockMap sync.Map
 }
 
@@ -38,11 +37,9 @@ func (w *walletService) SendMoney(ctx context.Context, fromID, toID uuid.UUID, a
 		return fmt.Errorf("amount must be between 0 and 10,000")
 	}
 
-	// Получаем блокировки для отправителя и получателя
 	fromLock := w.getLock(fromID)
 	toLock := w.getLock(toID)
 
-	// Блокируем оба кошелька
 	fromLock.Lock()
 	defer fromLock.Unlock()
 
