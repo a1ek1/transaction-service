@@ -7,7 +7,9 @@ import (
 	"transaction-service/internal/domain/repository"
 )
 
+// TransactionService defines methods for managing transaction operations.
 type TransactionService interface {
+	// GetNTransactions retrieves the last N transactions.
 	GetNTransactions(ctx context.Context, n int) ([]model.Transaction, error)
 }
 
@@ -22,10 +24,9 @@ func (t *transactionService) GetNTransactions(ctx context.Context, n int) ([]mod
 		return nil, err
 	}
 
-	// Ограничиваем количество рабочих потоков
 	workerCount := min(n, t.workerPoolSize)
 	results := make([]model.Transaction, 0, n)
-	resultsMu := sync.Mutex{} // Мьютекс для защиты результатов
+	resultsMu := sync.Mutex{}
 	resultCh := make(chan model.Transaction, n)
 	errCh := make(chan error, 1)
 
@@ -53,14 +54,12 @@ func (t *transactionService) GetNTransactions(ctx context.Context, n int) ([]mod
 		}(i)
 	}
 
-	// Ждем завершения всех горутин
 	go func() {
 		wg.Wait()
 		close(resultCh)
 		close(errCh)
 	}()
 
-	// Проверяем наличие ошибок
 	if len(errCh) > 0 {
 		return nil, <-errCh
 	}
@@ -68,6 +67,7 @@ func (t *transactionService) GetNTransactions(ctx context.Context, n int) ([]mod
 	return results[:min(len(results), n)], nil
 }
 
+// NewTransactionService creates a new instance of TransactionService.
 func NewTransactionService(repository repository.TransactionRepository) TransactionService {
 	return &transactionService{repository: repository, workerPoolSize: 5}
 }

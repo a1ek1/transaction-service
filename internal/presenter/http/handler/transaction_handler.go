@@ -1,3 +1,4 @@
+// Package handler implements HTTP handlers for transaction-related operations.
 package handler
 
 import (
@@ -8,7 +9,9 @@ import (
 	"github.com/labstack/echo"
 )
 
+// TransactionHandler defines HTTP endpoints for transaction operations.
 type TransactionHandler interface {
+	// GetLastTransactions handles the request to retrieve recent transactions.
 	GetLastTransactions(c echo.Context) error
 }
 

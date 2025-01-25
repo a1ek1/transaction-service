@@ -1,3 +1,4 @@
+// Package usecase implements application-specific logic for transactions.
 package usecase
 
 import (
@@ -6,7 +7,9 @@ import (
 	"transaction-service/internal/domain/service"
 )
 
+// TransactionUsecase defines application-level logic for transactions.
 type TransactionUsecase interface {
+	// GetLastTransactions retrieves the last N transactions as DTOs.
 	GetLastTransactions(ctx context.Context, count int) ([]TransactionDTO, error)
 }
 
@@ -39,6 +42,7 @@ func NewTransactionUsecase(transactionService service.TransactionService) Transa
 	}
 }
 
+// TransactionDTO represents a data transfer object for transactions.
 type TransactionDTO struct {
 	ID        string  `json:"id"`
 	From      string  `json:"from"`
