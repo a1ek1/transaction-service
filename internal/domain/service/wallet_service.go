@@ -10,9 +10,17 @@ import (
 	"transaction-service/internal/domain/repository"
 )
 
+// WalletService defines methods for wallet-related operations.
 type WalletService interface {
+	// SendMoney transfers funds between two wallets.
 	SendMoney(ctx context.Context, fromID, toID uuid.UUID, amount int) error
+
+	// GetBalance retrieves the balance of a wallet by its ID.
 	GetBalance(ctx context.Context, id uuid.UUID) (amount int, err error)
+
+	// InitializeWallets create 10 wallets for first launch
+	InitializeWallets(ctx context.Context) error
+	FetchAll(ctx context.Context) ([]*model.Wallet, error)
 }
 
 type walletService struct {
@@ -22,11 +30,54 @@ type walletService struct {
 	lockMap sync.Map
 }
 
+// FetchAll returns all records from the database
+func (w *walletService) FetchAll(ctx context.Context) ([]*model.Wallet, error) {
+	wallets, err := w.walletRepo.FetchAll(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch wallets: %w", err)
+	}
+	return wallets, nil
+}
+
+// NewWalletService creates a new instance of WalletService.
 func NewWalletService(walletRepo repository.WalletRepository, transactionRepo repository.TransactionRepository) WalletService {
 	return &walletService{
 		walletRepo:      walletRepo,
 		transactionRepo: transactionRepo,
 	}
+}
+
+func (w *walletService) InitializeWallets(ctx context.Context) error {
+	initialized, err := w.walletRepo.IsServiceInitialized(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to check initialization state: %w", err)
+	}
+
+	if initialized {
+		return nil // Кошельки уже были созданы
+	}
+
+	tx, err := w.walletRepo.BeginTransaction()
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	for i := 0; i < 10; i++ {
+		if _, err := w.walletRepo.Create(ctx); err != nil {
+			return fmt.Errorf("failed to create wallet #%d: %w", i+1, err)
+		}
+	}
+
+	if err := w.walletRepo.SetServiceInitialized(ctx); err != nil {
+		return fmt.Errorf("failed to set service initialized: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit initialization: %w", err)
+	}
+
+	return nil
 }
 
 func (w *walletService) SendMoney(ctx context.Context, fromID, toID uuid.UUID, amount int) error {

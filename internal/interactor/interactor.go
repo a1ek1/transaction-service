@@ -1,6 +1,7 @@
 package interactor
 
 import (
+	"context"
 	"github.com/jmoiron/sqlx"
 	"transaction-service/internal/domain/repository"
 	"transaction-service/internal/domain/service"
@@ -19,6 +20,7 @@ type Interactor interface {
 	NewWalletHandler() handler.WalletHandler
 	NewTransactionHandler() handler.TransactionHandler
 	NewAppHandler() handler.AppHandler
+	InitializeService(ctx context.Context) error
 }
 
 type interactor struct {
@@ -39,6 +41,11 @@ func (i *interactor) NewAppHandler() handler.AppHandler {
 		WalletHandler:      i.NewWalletHandler(),
 		TransactionHandler: i.NewTransactionHandler(),
 	}
+}
+
+func (i *interactor) InitializeService(ctx context.Context) error {
+	walletService := i.NewWalletService()
+	return walletService.InitializeWallets(ctx)
 }
 
 func (i *interactor) NewWalletRepository() repository.WalletRepository {

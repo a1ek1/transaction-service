@@ -25,6 +25,23 @@ func (w *walletRepositoryImpl) BeginTransaction() (*sqlx.Tx, error) {
 	return tx, nil
 }
 
+func (w *walletRepositoryImpl) IsServiceInitialized(ctx context.Context) (bool, error) {
+	var count int
+	err := w.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM service_state WHERE key = 'initialized'`).Scan(&count)
+	if err != nil {
+		return false, fmt.Errorf("failed to check service state: %w", err)
+	}
+	return count > 0, nil
+}
+
+func (w *walletRepositoryImpl) SetServiceInitialized(ctx context.Context) error {
+	_, err := w.db.ExecContext(ctx, `INSERT INTO service_state (key, value) VALUES ('initialized', 'true')`)
+	if err != nil {
+		return fmt.Errorf("failed to set service initialized: %w", err)
+	}
+	return nil
+}
+
 func (w *walletRepositoryImpl) Create(ctx context.Context) (uuid.UUID, error) {
 	tx, err := w.BeginTransaction()
 	if err != nil {
@@ -117,6 +134,21 @@ func (w *walletRepositoryImpl) Delete(ctx context.Context, id uuid.UUID) error {
 	}
 
 	return nil
+}
+
+func (w *walletRepositoryImpl) FetchAll(ctx context.Context) ([]*model.Wallet, error) {
+	var wallets []dbWallet
+	query := `SELECT id, amount FROM wallets`
+	err := w.db.SelectContext(ctx, &wallets, query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch wallets: %w", err)
+	}
+
+	var result []*model.Wallet
+	for _, wallet := range wallets {
+		result = append(result, &model.Wallet{ID: wallet.ID, Amount: wallet.Amount})
+	}
+	return result, nil
 }
 
 type dbWallet struct {
