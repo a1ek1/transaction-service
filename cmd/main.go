@@ -4,66 +4,58 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"time"
+	"transaction-service/config"
 
-	_ "github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"github.com/labstack/echo"
 	_ "github.com/lib/pq"
 
-	"transaction-service/internal/domain/service"
-	"transaction-service/internal/infrastructure/datastore"
+	"transaction-service/internal/interactor"
+	"transaction-service/internal/presenter/http/middleware"
+	"transaction-service/internal/presenter/http/router"
 )
 
 func main() {
-	db, err := sqlx.Open("postgres", "###")
+	dbHost := config.Get().DBHost
+	dbPort := config.Get().DBPort
+	dbUser := config.Get().DBUser
+	dbPassword := config.Get().DBPassword
+	dbName := config.Get().DBName
+	sslMode := config.Get().SSLMode
+
+	dsn := fmt.Sprintf(
+		"host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
+		dbHost, dbPort, dbUser, dbPassword, dbName, sslMode,
+	)
+
+	db, err := sqlx.Connect("postgres", dsn)
 	if err != nil {
-		log.Fatalf("Failed to connect to the database: %v", err)
+		log.Fatalf("Failed to connect to database: %v", err)
 	}
-	defer db.Close()
+	defer func() {
+		if err := db.Close(); err != nil {
+			log.Printf("Failed to close database connection: %v", err)
+		}
+	}()
 
-	repository := datastore.NewWalletRepositoryImpl(db)
-	walletService := service.NewWalletService(repository)
+	i := interactor.NewInteractor(db)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	wallet1ID, err := repository.Create(ctx)
-	if err != nil {
-		log.Fatalf("Failed to create wallet 1: %v", err)
-	}
-	wallet2ID, err := repository.Create(ctx)
-	if err != nil {
-		log.Fatalf("Failed to create wallet 2: %v", err)
-	}
-	fmt.Printf("Created wallets: %v (Wallet 1), %v (Wallet 2)\n", wallet1ID, wallet2ID)
-
-	balance, err := walletService.GetBalance(ctx, wallet1ID)
-	if err != nil {
-		log.Fatalf("Failed to get balance of wallet 1: %v", err)
-	}
-	fmt.Printf("Balance of wallet 1: %d\n", balance)
-
-	user1, err := repository.FetchByID(ctx, wallet1ID)
-	if err != nil {
-		log.Fatalf("Failed to fetch amount to transfer: %v", err)
+	ctx := context.Background()
+	if err := i.InitializeService(ctx); err != nil {
+		log.Fatalf("failed to initialize service: %v", err)
 	}
 
-	amountToTransfer := user1.Amount
+	h := i.NewAppHandler()
 
-	fmt.Printf("Transferring %d units from wallet 1 to wallet 2...\n", amountToTransfer)
-	err = walletService.SendMoney(ctx, wallet1ID, wallet2ID, amountToTransfer)
-	if err != nil {
-		log.Fatalf("Failed to transfer money: %v", err)
-	}
+	e := echo.New()
 
-	balance1, err := walletService.GetBalance(ctx, wallet1ID)
-	if err != nil {
-		log.Fatalf("Failed to get balance of wallet 1 after transfer: %v", err)
-	}
-	balance2, err := walletService.GetBalance(ctx, wallet2ID)
-	if err != nil {
-		log.Fatalf("Failed to get balance of wallet 2 after transfer: %v", err)
-	}
+	router.NewRouter(e, h)
+	middleware.NewMiddleware(e)
 
-	fmt.Printf("Balances after transfer: Wallet 1 = %d, Wallet 2 = %d\n", balance1, balance2)
+	port := config.Get().APPPort
+
+	log.Printf("Starting server on port %s", port)
+	if err := e.Start(":" + port); err != nil {
+		log.Fatalf("Failed to start server: %v", err)
+	}
 }
