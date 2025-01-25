@@ -1,4 +1,4 @@
-database_host = "postgres"
+database_host = "localhost"
 database_port = "5434"
 database_user = "postgres"
 database_password = "postgres"
